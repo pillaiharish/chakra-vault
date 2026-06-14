@@ -8,6 +8,7 @@ import pytest
 
 from chakra_vault.verify.hasher import (
     FileIsDirectoryError,
+    FileIsSymlinkError,
     FileMissingError,
     FileUnreadableError,
     sha256_file,
@@ -34,6 +35,21 @@ def test_sha256_file_missing_file_raises_clear_error(tmp_path) -> None:
 def test_sha256_file_directory_raises_clear_error(tmp_path) -> None:
     with pytest.raises(FileIsDirectoryError, match="path is a directory") as error:
         sha256_file(tmp_path)
+
+    assert str(tmp_path) not in str(error.value)
+
+
+def test_sha256_file_rejects_symlink_without_hashing_target(tmp_path) -> None:
+    target = tmp_path / "target.txt"
+    target.write_text("target content", encoding="utf-8")
+    link = tmp_path / "link.txt"
+    try:
+        link.symlink_to(target)
+    except OSError:
+        pytest.skip("current platform cannot create symlinks")
+
+    with pytest.raises(FileIsSymlinkError, match="path is a symlink") as error:
+        sha256_file(link)
 
     assert str(tmp_path) not in str(error.value)
 

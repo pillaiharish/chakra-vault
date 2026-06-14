@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 
+import pytest
+
 from chakra_vault.verify.types import RemoteFileMetadata, VerificationStatus
 from chakra_vault.verify.verifier import collect_local_files, verify_files
 
@@ -46,6 +48,56 @@ def test_collect_local_files_uses_relative_posix_paths(tmp_path) -> None:
     assert files["nested/file.txt"].sha256 == _sha256(content)
 
 
+def test_collect_local_files_skips_symlink_to_file_outside_root(tmp_path) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    outside = tmp_path / "outside.bin"
+    outside_content = b"outside target"
+    outside.write_bytes(outside_content)
+    link = root / "link.bin"
+    try:
+        link.symlink_to(outside)
+    except OSError:
+        pytest.skip("current platform cannot create symlinks")
+
+    files = collect_local_files(root)
+
+    assert "link.bin" not in files
+    assert all(file.sha256 != _sha256(outside_content) for file in files.values())
+
+
+def test_collect_local_files_does_not_follow_symlinked_directories(tmp_path) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    outside_dir = tmp_path / "outside-dir"
+    outside_dir.mkdir()
+    (outside_dir / "secret.bin").write_bytes(b"outside")
+    link = root / "linked-dir"
+    try:
+        link.symlink_to(outside_dir, target_is_directory=True)
+    except OSError:
+        pytest.skip("current platform cannot create symlinks")
+
+    files = collect_local_files(root)
+
+    assert "linked-dir/secret.bin" not in files
+
+
+def test_collect_local_files_rejects_symlink_root(tmp_path) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    link = tmp_path / "root-link"
+    try:
+        link.symlink_to(root, target_is_directory=True)
+    except OSError:
+        pytest.skip("current platform cannot create symlinks")
+
+    with pytest.raises(ValueError, match="verification root cannot be a symlink") as error:
+        collect_local_files(link)
+
+    assert str(tmp_path) not in str(error.value)
+
+
 def test_lfs_file_with_matching_sha_returns_match_pinned(tmp_path) -> None:
     content = b"weights metadata only"
     _write(tmp_path, "model.safetensors", content)
@@ -55,6 +107,16 @@ def test_lfs_file_with_matching_sha_returns_match_pinned(tmp_path) -> None:
     assert result.status is VerificationStatus.MATCH_PINNED
     assert result.files[0].status is VerificationStatus.MATCH_PINNED
     assert result.matched_count == 1
+
+
+def test_nested_provider_path_verifies_successfully(tmp_path) -> None:
+    content = b"nested config"
+    _write(tmp_path, "nested/tokenizer.json", content)
+
+    result = verify_files(tmp_path, [_remote("nested/tokenizer.json", content=content)])
+
+    assert result.status is VerificationStatus.MATCH_PINNED
+    assert result.files[0].path == "nested/tokenizer.json"
 
 
 def test_lfs_file_with_hash_mismatch_returns_corrupt(tmp_path) -> None:
@@ -129,6 +191,27 @@ def test_non_lfs_git_etag_is_unverified_not_corrupt(tmp_path) -> None:
     assert result.files[0].status is VerificationStatus.UNVERIFIED
     assert result.corrupt_count == 0
     assert result.unverified_count == 1
+
+
+@pytest.mark.parametrize(
+    "unsafe_path",
+    [
+        "../outside.bin",
+        "/tmp/outside.bin",
+        "",
+        "nested\\..\\outside.bin",
+        "C:\\tmp\\outside.bin",
+        ".",
+    ],
+)
+def test_verify_files_rejects_unsafe_expected_paths(tmp_path, unsafe_path: str) -> None:
+    with pytest.raises(ValueError, match="remote path is unsafe") as error:
+        verify_files(
+            tmp_path,
+            [_remote(unsafe_path, size_bytes=1, lfs_sha256=_sha256(b"x"))],
+        )
+
+    assert str(tmp_path) not in str(error.value)
 
 
 def test_lfs_metadata_missing_hash_returns_remote_metadata_missing(tmp_path) -> None:

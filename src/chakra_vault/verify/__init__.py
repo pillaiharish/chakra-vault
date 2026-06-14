@@ -3,6 +3,7 @@
 from chakra_vault.verify.hasher import (
     FileHashError,
     FileIsDirectoryError,
+    FileIsSymlinkError,
     FileMissingError,
     FileUnreadableError,
     sha256_file,
@@ -19,6 +20,7 @@ from chakra_vault.verify.verifier import collect_local_files, verify_files
 __all__ = [
     "FileHashError",
     "FileIsDirectoryError",
+    "FileIsSymlinkError",
     "FileMissingError",
     "FileUnreadableError",
     "FileVerificationResult",

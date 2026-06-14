@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+import re
+from pathlib import Path, PurePosixPath
 
 from chakra_vault.verify.hasher import sha256_file
 from chakra_vault.verify.types import (
@@ -17,6 +18,8 @@ from chakra_vault.verify.types import (
 def collect_local_files(root: Path) -> dict[str, LocalFileMetadata]:
     """Collect local regular files below ``root`` keyed by relative POSIX path."""
 
+    if root.is_symlink():
+        raise ValueError("verification root cannot be a symlink")
     if not root.exists():
         raise FileNotFoundError("verification root does not exist")
     if not root.is_dir():
@@ -24,6 +27,8 @@ def collect_local_files(root: Path) -> dict[str, LocalFileMetadata]:
 
     local_files: dict[str, LocalFileMetadata] = {}
     for path in sorted(root.rglob("*")):
+        if path.is_symlink():
+            continue
         if not path.is_file():
             continue
         relative_path = _relative_path(root, path)
@@ -42,10 +47,13 @@ def verify_files(
 
     local_files = collect_local_files(root)
     results: list[FileVerificationResult] = []
-    expected_paths = {_normalize_remote_path(file.path) for file in expected_files}
+    normalized_expected = [
+        (expected_file, _normalize_remote_path(expected_file.path))
+        for expected_file in expected_files
+    ]
+    expected_paths = {path for _, path in normalized_expected}
 
-    for expected_file in expected_files:
-        expected_path = _normalize_remote_path(expected_file.path)
+    for expected_file, expected_path in normalized_expected:
         local_file = local_files.get(expected_path)
         if local_file is None:
             results.append(
@@ -186,7 +194,25 @@ def _count(
 
 
 def _normalize_remote_path(path: str) -> str:
-    return Path(path).as_posix().lstrip("/")
+    if not isinstance(path, str):
+        raise ValueError("remote path is unsafe")
+    if path == "" or path != path.strip():
+        raise ValueError("remote path is unsafe")
+    if "\\" in path:
+        raise ValueError("remote path is unsafe")
+    if re.match(r"^[A-Za-z]:", path):
+        raise ValueError("remote path is unsafe")
+
+    candidate = PurePosixPath(path)
+    if candidate.is_absolute():
+        raise ValueError("remote path is unsafe")
+
+    normalized = candidate.as_posix()
+    parts = candidate.parts
+    if normalized == "." or not parts or any(part in {"", ".", ".."} for part in parts):
+        raise ValueError("remote path is unsafe")
+
+    return normalized
 
 
 def _relative_path(root: Path, path: Path) -> str:
