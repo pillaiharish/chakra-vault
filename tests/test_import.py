@@ -23,3 +23,12 @@ def test_verify_modules_import() -> None:
     assert chakra_vault.verify.hasher.__name__ == "chakra_vault.verify.hasher"
     assert chakra_vault.verify.types.__name__ == "chakra_vault.verify.types"
     assert chakra_vault.verify.verifier.__name__ == "chakra_vault.verify.verifier"
+
+
+def test_provider_modules_import() -> None:
+    import chakra_vault.providers.huggingface
+
+    assert (
+        chakra_vault.providers.huggingface.__name__
+        == "chakra_vault.providers.huggingface"
+    )

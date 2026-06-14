@@ -48,7 +48,7 @@ def verify_files(
     local_files = collect_local_files(root)
     results: list[FileVerificationResult] = []
     normalized_expected = [
-        (expected_file, _normalize_remote_path(expected_file.path))
+        (expected_file, normalize_remote_path(expected_file.path))
         for expected_file in expected_files
     ]
     expected_paths = {path for _, path in normalized_expected}
@@ -193,7 +193,9 @@ def _count(
     return sum(1 for file in files if file.status is status)
 
 
-def _normalize_remote_path(path: str) -> str:
+def normalize_remote_path(path: str) -> str:
+    """Return a safe relative POSIX provider path."""
+
     if not isinstance(path, str):
         raise ValueError("remote path is unsafe")
     if path == "" or path != path.strip():
@@ -213,6 +215,9 @@ def _normalize_remote_path(path: str) -> str:
         raise ValueError("remote path is unsafe")
 
     return normalized
+
+
+_normalize_remote_path = normalize_remote_path
 
 
 def _relative_path(root: Path, path: Path) -> str:

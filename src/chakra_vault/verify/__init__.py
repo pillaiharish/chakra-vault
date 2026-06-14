@@ -15,7 +15,7 @@ from chakra_vault.verify.types import (
     RemoteFileMetadata,
     VerificationStatus,
 )
-from chakra_vault.verify.verifier import collect_local_files, verify_files
+from chakra_vault.verify.verifier import collect_local_files, normalize_remote_path, verify_files
 
 __all__ = [
     "FileHashError",
@@ -29,6 +29,7 @@ __all__ = [
     "RemoteFileMetadata",
     "VerificationStatus",
     "collect_local_files",
+    "normalize_remote_path",
     "sha256_file",
     "verify_files",
 ]
