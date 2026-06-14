@@ -208,6 +208,8 @@ hf_cache/
 huggingface/
 .huggingface/
 downloads/
+!src/chakra_vault/downloads/
+!src/chakra_vault/downloads/*.py
 receipts/
 restore-tests/
 quarantine/
