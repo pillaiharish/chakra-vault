@@ -32,3 +32,9 @@ def test_provider_modules_import() -> None:
         chakra_vault.providers.huggingface.__name__
         == "chakra_vault.providers.huggingface"
     )
+
+
+def test_planner_modules_import() -> None:
+    import chakra_vault.planner.download_plan
+
+    assert chakra_vault.planner.download_plan.__name__ == "chakra_vault.planner.download_plan"
