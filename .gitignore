@@ -178,6 +178,106 @@ dmypy.json
 # pytype static type analyzer
 .pytype/
 
+# Chakra Vault public-safety guardrails
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Local/runtime data
+.chakra/
+chakra-vault.db*
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+logs/
+*.log.*
+vaults/
+model/
+models/
+model_cache/
+model_weights/
+weights/
+checkpoints/
+datasets/
+data/
+hf_cache/
+huggingface/
+.huggingface/
+downloads/
+receipts/
+restore-tests/
+quarantine/
+run/
+runs/
+outputs/
+artifacts/
+reports/
+tmp/
+temp/
+*.tmp
+
+# Model weights, datasets, and large ML artifacts
+*.safetensors
+*.gguf
+*.ggml
+*.bin
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.tflite
+*.mlx
+*.msgpack
+*.arrow
+*.parquet
+*.npy
+*.npz
+*.h5
+*.hdf5
+
+# Secrets and local machine configuration
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.csr
+*.token
+*.kubeconfig
+id_rsa*
+id_ed25519*
+secrets/
+private/
+local/
+local_config.*
+wandb/
+mlruns/
+
+# Large archives and disk images
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.tar.zst
+*.7z
+*.rar
+*.dmg
+*.iso
+
+# Web app generated files
+apps/web/node_modules/
+apps/web/dist/
+apps/web/build/
+apps/web/.vite/
+apps/web/test-results/
+apps/web/playwright-report/
+
 # Cython debug symbols
 cython_debug/
 

@@ -1,0 +1,44 @@
+name: ci
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install package
+        run: python -m pip install -e ".[dev]"
+
+      - name: Lint
+        run: ruff check scripts tests/test_import.py tests/test_safety_scripts.py src/chakra_vault/__init__.py
+
+      - name: Test Phase 0 foundation
+        run: pytest tests/test_import.py tests/test_safety_scripts.py
+
+      - name: Check for large files
+        run: python scripts/check_no_large_files.py --max-bytes 10485760 .
+
+      - name: Check for Hub upload behavior
+        run: python scripts/check_no_hf_upload.py .
+
+      - name: Check for private paths
+        run: python scripts/check_no_private_paths.py .
