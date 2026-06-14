@@ -1,50 +1,28 @@
 # Security
 
-Chakra Vault is designed to be public-safe and local-first.
-
-## Repository Safety
-
-- Do not commit model weights, local logs, database files, tokens, or personal
-  filesystem paths.
-- Use synthetic demo data only.
-- Keep destructive operations behind explicit evidence gates.
-- Run the safety scripts before merge.
-
-## Runtime Safety
-
-- Hugging Face operations are read-only and download-only.
-- Safe delete requires source verification plus coldstore/restore evidence.
-- UI success states must come from the database, not generated prose.
-# Security
-
-Chakra Vault handles metadata about local LLM artifacts. Treat that metadata as
-sensitive because file names, paths, logs, and manifests can reveal private
-machine details.
+Chakra Vault Phase 0 keeps the repository safe to publish. Do not commit model
+weights, datasets, logs, database files, generated inventories, private
+configuration, secrets, tokens, or local absolute paths.
 
 ## Public-Safe Rules
 
-- Do not commit model weights, datasets, logs, generated inventories, or caches.
-- Do not commit absolute local paths.
-- Do not commit secrets, tokens, cookies, service credentials, or private config.
-- Do not add Hub upload behavior.
-- Prefer relative paths in examples and generated output.
+- Use relative paths in examples and documentation.
+- Keep generated caches and local runtime state out of Git.
+- Do not add Hugging Face upload, push, publish, create, or delete behavior.
+- Remove unsafe content instead of adding broad allowlists.
+- Treat old Chakra code as reference material, not source to bulk copy.
 
-## Repository Checks
+## Phase 0 Checks
 
-Run these before opening a pull request:
+Run these before merge:
 
 ```bash
+python3 -m pytest tests/test_import.py tests/test_safety_scripts.py
+python3 -m ruff check scripts tests/test_import.py tests/test_safety_scripts.py src/chakra_vault/__init__.py
 python3 scripts/check_no_large_files.py .
 python3 scripts/check_no_hf_upload.py .
 python3 scripts/check_no_private_paths.py .
-python3 -m pytest
 ```
 
-The CI workflow runs the same checks. If a check fails, remove the unsafe
-content instead of adding an allowlist.
-
-## Reporting Issues
-
-Open a private maintainer discussion for security-sensitive reports. Do not
-paste secrets, local manifests, logs, or machine-specific paths into public
-issues.
+Security-sensitive reports should not include secrets, local manifests, logs, or
+machine-specific paths in public issues.

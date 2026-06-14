@@ -1,54 +1,19 @@
 # Roadmap
 
-## Phase 0
+## Phase 0: Public-Safe Foundation
 
-Public-safe repo foundation, safety scripts, CI, docs, package skeleton.
+- Package skeleton and version metadata.
+- Public-safe documentation.
+- Safety scripts for large files, Hub upload behavior, and private paths.
+- CI and pull request checklist for the Phase 0 checks.
 
-## Phase 1
+## Future Phases
 
-SQLite ledger, append-only events, and strict state machine.
+- Read-only local inventory of user-provided model roots.
+- Read-only model metadata resolution.
+- Checksum verification and sanitized evidence records.
+- Storage planning and restore testing.
+- Managed downloads, API, CLI, TUI, and dashboard surfaces.
 
-## Phase 2
-
-Read-only Hugging Face resolver and no-upload policy.
-
-## Phase 3
-
-Local hashing, verification, drift detection, and receipts.
-
-## Phase 4
-
-Storage planning, job runner, API, TUI, and read-only dashboard.
-# Roadmap
-
-## Phase 0: Foundation
-
-- Python package skeleton.
-- Public-safe repository defaults.
-- CI for lint, tests, import checks, and safety scripts.
-- Documentation for architecture, testing, security, and Hub upload policy.
-
-## Phase 1: Read-Only Inventory
-
-- Discover local model artifact directories from user-provided roots.
-- Compute size, file count, and checksum metadata.
-- Write sanitized manifests with relative paths only.
-- Keep network behavior disabled by default.
-
-## Phase 2: Cold Storage Planning
-
-- Plan copy and verification jobs without executing destructive actions.
-- Estimate storage requirements.
-- Validate restore plans against checksums.
-
-## Phase 3: Restore Testing
-
-- Restore small sample artifacts into temporary locations.
-- Verify checksums and manifest consistency.
-- Report missing, corrupt, or unexpected files.
-
-## Phase 4: Monitoring
-
-- Track local inventory drift.
-- Alert on missing or changed artifacts.
-- Keep private paths and logs out of generated reports.
+These future features are not implemented in PR 1. They should be added in
+small, reviewed PRs that keep the repository public-safe.
