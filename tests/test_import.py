@@ -49,3 +49,12 @@ def test_downloader_modules_import() -> None:
     import chakra_vault.downloader.executor
 
     assert chakra_vault.downloader.executor.__name__ == "chakra_vault.downloader.executor"
+
+
+def test_workflow_modules_import() -> None:
+    import chakra_vault.workflows.model_download
+
+    assert (
+        chakra_vault.workflows.model_download.__name__
+        == "chakra_vault.workflows.model_download"
+    )
