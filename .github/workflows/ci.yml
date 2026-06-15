@@ -29,10 +29,10 @@ jobs:
         run: python -m pip install -e ".[dev]"
 
       - name: Lint
-        run: ruff check scripts tests/test_import.py tests/test_safety_scripts.py src/chakra_vault/__init__.py
+        run: ruff check scripts tests src
 
-      - name: Test Phase 0 foundation
-        run: pytest tests/test_import.py tests/test_safety_scripts.py
+      - name: Run test suite
+        run: pytest
 
       - name: Check for large files
         run: python scripts/check_no_large_files.py --max-bytes 10485760 .
