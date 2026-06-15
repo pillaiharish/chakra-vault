@@ -7,7 +7,10 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
-from chakra_vault.workflows import download_huggingface_model
+from chakra_vault.workflows import (
+    download_huggingface_model,
+    plan_huggingface_model_download,
+)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -37,10 +40,14 @@ def _build_parser() -> argparse.ArgumentParser:
     download_parser.add_argument("--repo-id", required=True)
     download_parser.add_argument("--target-dir", required=True)
     download_parser.add_argument("--revision")
+    download_parser.add_argument("--dry-run", action="store_true")
     return parser
 
 
 def _run_model_download(args: argparse.Namespace) -> int:
+    if args.dry_run:
+        return _run_model_download_dry_run(args)
+
     try:
         result = download_huggingface_model(
             args.repo_id,
@@ -61,6 +68,36 @@ def _run_model_download(args: argparse.Namespace) -> int:
     print(f"failed: {result.execution.failed_count}")
     print(f"verification: {result.verification.status}")
     return 0 if result.execution.failed_count == 0 else 1
+
+
+def _run_model_download_dry_run(args: argparse.Namespace) -> int:
+    try:
+        result = plan_huggingface_model_download(
+            args.repo_id,
+            Path(args.target_dir),
+            revision=args.revision,
+        )
+    except Exception:
+        print("error: model download planning failed", file=sys.stderr)
+        return 1
+
+    print(f"repo_id: {result.repo_id}")
+    print(f"revision: {result.revision or 'default'}")
+    print("dry_run: true")
+    print(f"planned_downloads: {result.plan.download_count}")
+    print(f"planned_redownloads: {result.plan.redownload_count}")
+    print(f"skipped: {result.plan.skip_count}")
+    print(f"unverified: {result.plan.unverified_count}")
+    print(f"extra: {result.plan.extra_count}")
+    print(f"remote_metadata_missing: {result.plan.metadata_missing_count}")
+    print(f"planned_download_bytes: {_format_optional_bytes(result.plan.planned_download_bytes)}")
+    return 0
+
+
+def _format_optional_bytes(value: int | None) -> str:
+    if value is None:
+        return "unknown"
+    return str(value)
 
 
 def _exit_code(error: SystemExit) -> int:
