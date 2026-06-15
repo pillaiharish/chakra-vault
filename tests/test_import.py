@@ -38,3 +38,9 @@ def test_planner_modules_import() -> None:
     import chakra_vault.planner.download_plan
 
     assert chakra_vault.planner.download_plan.__name__ == "chakra_vault.planner.download_plan"
+
+
+def test_downloader_modules_import() -> None:
+    import chakra_vault.downloader.executor
+
+    assert chakra_vault.downloader.executor.__name__ == "chakra_vault.downloader.executor"
