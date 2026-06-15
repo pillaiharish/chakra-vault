@@ -27,10 +27,15 @@ def test_verify_modules_import() -> None:
 
 def test_provider_modules_import() -> None:
     import chakra_vault.providers.huggingface
+    import chakra_vault.providers.huggingface_download
 
     assert (
         chakra_vault.providers.huggingface.__name__
         == "chakra_vault.providers.huggingface"
+    )
+    assert (
+        chakra_vault.providers.huggingface_download.__name__
+        == "chakra_vault.providers.huggingface_download"
     )
 
 
