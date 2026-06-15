@@ -57,17 +57,18 @@ def build_download_plan(
     """Build a manifest describing what a future downloader should do."""
 
     expected_list = list(expected_files)
-    expected_by_path = _expected_metadata_by_path(expected_list)
+    expected_entries = _ordered_expected_metadata(expected_list)
     verification = verify_files(root, expected_list)
+    result_by_path = {result.path: result for result in verification.files}
 
-    expected_items: list[DownloadPlanItem] = []
+    expected_items = [
+        _plan_item(result_by_path[path], expected_file)
+        for path, expected_file in expected_entries
+    ]
     extra_items: list[DownloadPlanItem] = []
     for result in verification.files:
-        item = _plan_item(result, expected_by_path.get(result.path))
-        if item.action is DownloadPlanAction.REPORT_EXTRA_LOCAL:
-            extra_items.append(item)
-        else:
-            expected_items.append(item)
+        if result.status is VerificationStatus.LOCAL_EXTRA_FILE:
+            extra_items.append(_plan_item(result, None))
 
     items = tuple(expected_items + sorted(extra_items, key=lambda item: item.path))
     return DownloadPlan(
@@ -84,16 +85,16 @@ def build_download_plan(
     )
 
 
-def _expected_metadata_by_path(
+def _ordered_expected_metadata(
     expected_files: Sequence[RemoteFileMetadata],
-) -> dict[str, RemoteFileMetadata]:
+) -> tuple[tuple[str, RemoteFileMetadata], ...]:
     expected_by_path: dict[str, RemoteFileMetadata] = {}
     for expected_file in expected_files:
         path = normalize_remote_path(expected_file.path)
         if path in expected_by_path:
             raise ValueError("duplicate remote path")
         expected_by_path[path] = expected_file
-    return expected_by_path
+    return tuple(expected_by_path.items())
 
 
 def _plan_item(
@@ -147,4 +148,4 @@ def _planned_download_bytes(items: tuple[DownloadPlanItem, ...]) -> int | None:
         return 0
     if any(item.expected_size_bytes is None for item in planned_items):
         return None
-    return sum(item.expected_size_bytes for item in planned_items if item.expected_size_bytes)
+    return sum(item.expected_size_bytes or 0 for item in planned_items)

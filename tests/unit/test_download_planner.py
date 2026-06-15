@@ -8,6 +8,11 @@ import pytest
 
 from chakra_vault.planner import DownloadPlanAction, build_download_plan
 from chakra_vault.verify import RemoteFileMetadata
+from chakra_vault.verify.types import (
+    FileVerificationResult,
+    ModelVerificationResult,
+    VerificationStatus,
+)
 
 
 def _write(tmp_path: Path, relative_path: str, content: bytes) -> Path:
@@ -170,6 +175,54 @@ def test_mixed_plan_counts_and_order_are_correct(tmp_path: Path) -> None:
     assert plan.planned_download_bytes == 10 + len(corrupt)
 
 
+def test_expected_order_does_not_depend_on_verify_result_order(
+    tmp_path: Path, monkeypatch
+) -> None:
+    expected_files = [
+        _remote("first.bin", size_bytes=1, lfs_sha256=_sha256(b"first")),
+        _remote("second.bin", size_bytes=2, lfs_sha256=_sha256(b"second")),
+        _remote("third.bin", size_bytes=3, lfs_sha256=_sha256(b"third")),
+    ]
+
+    def fake_verify_files(root: Path, expected_files) -> ModelVerificationResult:
+        return ModelVerificationResult(
+            status=VerificationStatus.LOCAL_EXTRA_FILE,
+            files=(
+                _file_result("third.bin", VerificationStatus.LOCAL_MISSING_FILE, 3),
+                _file_result("z-extra.bin", VerificationStatus.LOCAL_EXTRA_FILE, None),
+                _file_result("first.bin", VerificationStatus.LOCAL_MISSING_FILE, 1),
+                _file_result("a-extra.bin", VerificationStatus.LOCAL_EXTRA_FILE, None),
+                _file_result("second.bin", VerificationStatus.LOCAL_MISSING_FILE, 2),
+            ),
+            matched_count=0,
+            missing_count=3,
+            corrupt_count=0,
+            extra_count=2,
+            unverified_count=0,
+        )
+
+    monkeypatch.setattr(
+        "chakra_vault.planner.download_plan.verify_files", fake_verify_files
+    )
+
+    plan = build_download_plan(tmp_path, expected_files)
+
+    assert [item.path for item in plan.items] == [
+        "first.bin",
+        "second.bin",
+        "third.bin",
+        "a-extra.bin",
+        "z-extra.bin",
+    ]
+    assert [item.action for item in plan.items] == [
+        DownloadPlanAction.DOWNLOAD_MISSING,
+        DownloadPlanAction.DOWNLOAD_MISSING,
+        DownloadPlanAction.DOWNLOAD_MISSING,
+        DownloadPlanAction.REPORT_EXTRA_LOCAL,
+        DownloadPlanAction.REPORT_EXTRA_LOCAL,
+    ]
+
+
 def test_planned_download_bytes_is_none_when_any_planned_size_is_unknown(
     tmp_path: Path,
 ) -> None:
@@ -251,3 +304,19 @@ def test_planner_does_not_write_files(tmp_path: Path, monkeypatch) -> None:
     plan = build_download_plan(tmp_path, [_remote("model.bin", content=content)])
 
     assert plan.items[0].action is DownloadPlanAction.SKIP_VERIFIED
+
+
+def _file_result(
+    path: str,
+    status: VerificationStatus,
+    expected_size_bytes: int | None,
+) -> FileVerificationResult:
+    return FileVerificationResult(
+        path=path,
+        status=status,
+        expected_size_bytes=expected_size_bytes,
+        actual_size_bytes=None,
+        expected_sha256=None,
+        actual_sha256=None,
+        message="test result",
+    )
