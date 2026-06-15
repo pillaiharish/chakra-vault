@@ -12,9 +12,11 @@ from chakra_vault.downloader import DownloadExecutionStatus
 from chakra_vault.planner import DownloadPlanAction
 from chakra_vault.verify import RemoteFileMetadata, VerificationStatus
 from chakra_vault.workflows import (
+    ModelDownloadPlanWorkflowResult,
     ModelDownloadWorkflowError,
     ModelDownloadWorkflowResult,
     download_huggingface_model,
+    plan_huggingface_model_download,
 )
 
 
@@ -262,3 +264,69 @@ def test_unsafe_metadata_path_is_rejected_by_lower_layer(tmp_path: Path) -> None
             metadata_client=metadata_client,
             download_source=FakeDownloadSource({"../outside.bin": b"x"}),
         )
+
+
+def test_plan_workflow_uses_metadata_and_returns_plan(tmp_path: Path) -> None:
+    content = b"model bytes"
+    metadata_client = FakeMetadataClient((_remote("model.bin", content),))
+
+    result = plan_huggingface_model_download(
+        "org/model",
+        tmp_path,
+        revision="main",
+        metadata_client=metadata_client,
+    )
+
+    assert isinstance(result, ModelDownloadPlanWorkflowResult)
+    assert result.repo_id == "org/model"
+    assert result.revision == "main"
+    assert metadata_client.calls == [("org/model", "main")]
+    assert result.plan.download_count == 1
+    assert result.plan.items[0].action is DownloadPlanAction.DOWNLOAD_MISSING
+
+
+def test_plan_workflow_does_not_construct_source_or_execute(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    content = b"model bytes"
+
+    def fail_source(*args, **kwargs):
+        raise AssertionError("download source must not be constructed")
+
+    def fail_execute(*args, **kwargs):
+        raise AssertionError("executor must not be called")
+
+    monkeypatch.setattr(workflow, "HuggingFaceDownloadSource", fail_source)
+    monkeypatch.setattr(workflow, "execute_download_plan", fail_execute)
+
+    result = plan_huggingface_model_download(
+        "org/model",
+        tmp_path,
+        metadata_client=FakeMetadataClient((_remote("model.bin", content),)),
+    )
+
+    assert result.plan.download_count == 1
+
+
+def test_plan_workflow_metadata_error_is_wrapped_without_cause_or_leak(
+    tmp_path: Path,
+) -> None:
+    metadata_client = FakeMetadataClient(
+        (),
+        error=RuntimeError(f"token-secret at https://huggingface.co from {tmp_path}"),
+    )
+
+    with pytest.raises(ModelDownloadWorkflowError) as error:
+        plan_huggingface_model_download(
+            "org/model",
+            tmp_path,
+            metadata_client=metadata_client,
+        )
+
+    message = str(error.value)
+    assert message == "failed to fetch model metadata"
+    assert "token-secret" not in message
+    assert "https://huggingface.co" not in message
+    assert str(tmp_path) not in message
+    assert error.value.__cause__ is None

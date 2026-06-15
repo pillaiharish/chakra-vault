@@ -29,6 +29,27 @@ def _workflow_result(
     )
 
 
+def _plan_result(
+    *,
+    repo_id: str = "org/model",
+    revision: str | None = None,
+    planned_download_bytes: int | None = 123,
+) -> SimpleNamespace:
+    return SimpleNamespace(
+        repo_id=repo_id,
+        revision=revision,
+        plan=SimpleNamespace(
+            download_count=2,
+            redownload_count=1,
+            skip_count=3,
+            unverified_count=4,
+            extra_count=5,
+            metadata_missing_count=6,
+            planned_download_bytes=planned_download_bytes,
+        ),
+    )
+
+
 def test_cli_help_exits_successfully(capsys: pytest.CaptureFixture[str]) -> None:
     exit_code = cli.main(["--help"])
 
@@ -133,6 +154,112 @@ def test_execution_failures_return_nonzero_without_raw_errors(
     assert exit_code == 1
     assert "failed: 1" in captured.out
     assert captured.err == ""
+
+
+def test_dry_run_calls_plan_workflow_and_not_download_workflow(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    plan_calls: list[tuple[str, object, str | None]] = []
+    download_calls: list[tuple[str, object, str | None]] = []
+
+    def fake_plan(repo_id, root, *, revision=None):
+        plan_calls.append((repo_id, root, revision))
+        return _plan_result(repo_id=repo_id, revision=revision)
+
+    def fake_download(repo_id, root, *, revision=None):
+        download_calls.append((repo_id, root, revision))
+        raise AssertionError("download workflow must not be called")
+
+    monkeypatch.setattr(cli, "plan_huggingface_model_download", fake_plan)
+    monkeypatch.setattr(cli, "download_huggingface_model", fake_download)
+
+    exit_code = cli.main(
+        [
+            "model",
+            "download",
+            "--repo-id",
+            "org/model",
+            "--target-dir",
+            str(tmp_path),
+            "--revision",
+            "main",
+            "--dry-run",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert plan_calls == [("org/model", tmp_path, "main")]
+    assert download_calls == []
+    assert "repo_id: org/model" in captured.out
+    assert "revision: main" in captured.out
+    assert "dry_run: true" in captured.out
+    assert "planned_downloads: 2" in captured.out
+    assert "planned_redownloads: 1" in captured.out
+    assert "skipped: 3" in captured.out
+    assert "unverified: 4" in captured.out
+    assert "extra: 5" in captured.out
+    assert "remote_metadata_missing: 6" in captured.out
+    assert "planned_download_bytes: 123" in captured.out
+
+
+def test_dry_run_unknown_planned_download_bytes_prints_unknown(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def fake_plan(repo_id, root, *, revision=None):
+        return _plan_result(repo_id=repo_id, revision=revision, planned_download_bytes=None)
+
+    monkeypatch.setattr(cli, "plan_huggingface_model_download", fake_plan)
+
+    exit_code = cli.main(
+        [
+            "model",
+            "download",
+            "--repo-id",
+            "org/model",
+            "--target-dir",
+            str(tmp_path),
+            "--dry-run",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "planned_download_bytes: unknown" in captured.out
+
+
+def test_dry_run_failure_prints_generic_error_and_exits_nonzero(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def fail_plan(repo_id, root, *, revision=None):
+        raise RuntimeError(f"token-secret at https://huggingface.co from {tmp_path}")
+
+    monkeypatch.setattr(cli, "plan_huggingface_model_download", fail_plan)
+
+    exit_code = cli.main(
+        [
+            "model",
+            "download",
+            "--repo-id",
+            "org/model",
+            "--target-dir",
+            str(tmp_path),
+            "--dry-run",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert captured.err.strip() == "error: model download planning failed"
+    assert "token-secret" not in captured.err
+    assert "https://huggingface.co" not in captured.err
+    assert str(tmp_path) not in captured.err
 
 
 def test_cli_module_does_not_import_forbidden_helpers() -> None:

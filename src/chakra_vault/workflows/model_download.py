@@ -30,6 +30,15 @@ class ModelDownloadWorkflowResult:
     verification: ModelVerificationResult
 
 
+@dataclass(frozen=True)
+class ModelDownloadPlanWorkflowResult:
+    """Result of a dry-run model download planning workflow."""
+
+    repo_id: str
+    revision: str | None
+    plan: DownloadPlan
+
+
 def download_huggingface_model(
     repo_id: str,
     root: Path,
@@ -77,3 +86,28 @@ def _build_download_source(
         return HuggingFaceDownloadSource(repo_id, revision=revision, token=token)
     except Exception:
         raise ModelDownloadWorkflowError("failed to create download source") from None
+
+
+def plan_huggingface_model_download(
+    repo_id: str,
+    root: Path,
+    *,
+    revision: str | None = None,
+    metadata_client: HuggingFaceMetadataClient | None = None,
+) -> ModelDownloadPlanWorkflowResult:
+    """Plan a Hugging Face model download without executing writes."""
+
+    client = metadata_client if metadata_client is not None else HuggingFaceMetadataClient()
+    try:
+        expected_files = client.list_model_files(repo_id, revision=revision)
+    except ValueError:
+        raise
+    except Exception:
+        raise ModelDownloadWorkflowError("failed to fetch model metadata") from None
+
+    plan = build_download_plan(root, expected_files)
+    return ModelDownloadPlanWorkflowResult(
+        repo_id=repo_id,
+        revision=revision,
+        plan=plan,
+    )
