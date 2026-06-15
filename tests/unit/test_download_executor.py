@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+import chakra_vault.downloader.executor as executor
 from chakra_vault.downloader import DownloadExecutionStatus, execute_download_plan
 from chakra_vault.planner import DownloadPlan, DownloadPlanAction, DownloadPlanItem
 
@@ -258,6 +259,52 @@ def test_final_path_symlink_is_rejected(tmp_path: Path) -> None:
 
     assert summary.results[0].status is DownloadExecutionStatus.FAILED
     assert link.is_symlink()
+    assert source.calls == []
+
+
+def test_part_symlink_is_rejected_and_source_is_not_called(tmp_path: Path) -> None:
+    target = tmp_path / "outside-target.bin"
+    target.write_bytes(b"target")
+    part_link = tmp_path / "model.bin.part"
+    try:
+        part_link.symlink_to(target)
+    except OSError:
+        pytest.skip("current platform cannot create symlinks")
+    source = FakeDownloadSource({"model.bin": b"content"})
+
+    summary = execute_download_plan(
+        tmp_path,
+        _plan(_item("model.bin", DownloadPlanAction.DOWNLOAD_MISSING)),
+        source,
+    )
+
+    assert summary.results[0].status is DownloadExecutionStatus.FAILED
+    assert target.read_bytes() == b"target"
+    assert part_link.is_symlink()
+    assert source.calls == []
+
+
+def test_part_creation_failure_is_generic_and_source_is_not_called(
+    tmp_path: Path, monkeypatch
+) -> None:
+    source = FakeDownloadSource({"model.bin": b"content"})
+
+    def fail_create_part_file(path: Path):
+        raise OSError("private path /tmp/secret")
+
+    monkeypatch.setattr(executor, "_create_part_file", fail_create_part_file)
+
+    summary = execute_download_plan(
+        tmp_path,
+        _plan(_item("model.bin", DownloadPlanAction.DOWNLOAD_MISSING)),
+        source,
+    )
+
+    assert summary.results[0].status is DownloadExecutionStatus.FAILED
+    assert summary.results[0].message == "download execution failed"
+    assert str(tmp_path) not in summary.results[0].message
+    assert "/tmp/secret" not in summary.results[0].message
+    assert source.calls == []
 
 
 def test_parent_directory_symlink_is_rejected(tmp_path: Path) -> None:
@@ -278,6 +325,33 @@ def test_parent_directory_symlink_is_rejected(tmp_path: Path) -> None:
 
     assert summary.results[0].status is DownloadExecutionStatus.FAILED
     assert not (outside / "model.bin").exists()
+    assert source.calls == []
+
+
+def test_parent_recheck_after_mkdir_can_fail_before_source_call(
+    tmp_path: Path, monkeypatch
+) -> None:
+    source = FakeDownloadSource({"nested/model.bin": b"content"})
+    original_check_parent = executor._check_parent
+    calls = 0
+
+    def fail_after_first_parent_check(root: Path, parent: Path) -> None:
+        nonlocal calls
+        calls += 1
+        if calls > 1:
+            raise ValueError("parent path is unsafe")
+        original_check_parent(root, parent)
+
+    monkeypatch.setattr(executor, "_check_parent", fail_after_first_parent_check)
+
+    summary = execute_download_plan(
+        tmp_path,
+        _plan(_item("nested/model.bin", DownloadPlanAction.DOWNLOAD_MISSING)),
+        source,
+    )
+
+    assert summary.results[0].status is DownloadExecutionStatus.FAILED
+    assert source.calls == []
 
 
 def test_root_symlink_is_rejected(tmp_path: Path) -> None:
@@ -298,6 +372,7 @@ def test_root_symlink_is_rejected(tmp_path: Path) -> None:
 
     assert summary.results[0].status is DownloadExecutionStatus.FAILED
     assert not (root / "model.bin").exists()
+    assert source.calls == []
 
 
 def test_nested_path_works(tmp_path: Path) -> None:

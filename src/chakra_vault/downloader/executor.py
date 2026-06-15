@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
@@ -115,23 +116,25 @@ def _execute_download_item(
     final_path = _safe_final_path(root, path)
     part_path = final_path.with_name(f"{final_path.name}.part")
 
+    _prepare_parent(root, final_path.parent)
+    _check_parent(root, final_path.parent)
+    _reject_symlink(final_path, "final file is unsafe")
+    _reject_symlink(part_path, "temporary file is unsafe")
+
     if item.action is DownloadPlanAction.DOWNLOAD_MISSING and final_path.exists():
         return _failed(path, "final file already exists")
 
-    _prepare_parent(root, final_path.parent)
-    _reject_symlink(final_path, "final file is unsafe")
-    _reject_symlink(part_path, "temporary file is unsafe")
-    _remove_file(part_path)
-
     bytes_written = 0
     try:
-        with source.open(path) as stream, part_path.open("wb") as target:
-            while True:
-                chunk = stream.read(chunk_size)
-                if not chunk:
-                    break
-                target.write(chunk)
-                bytes_written += len(chunk)
+        _check_parent(root, final_path.parent)
+        with _create_part_file(part_path) as target:
+            with source.open(path) as stream:
+                while True:
+                    chunk = stream.read(chunk_size)
+                    if not chunk:
+                        break
+                    target.write(chunk)
+                    bytes_written += len(chunk)
         _verify_part_file(part_path, item)
         part_path.replace(final_path)
     except Exception:
@@ -159,12 +162,17 @@ def _safe_final_path(root: Path, path: str) -> Path:
 
 
 def _prepare_parent(root: Path, parent: Path) -> None:
+    _check_parent(root, parent)
+    parent.mkdir(parents=True, exist_ok=True)
+    _check_parent(root, parent)
+
+
+def _check_parent(root: Path, parent: Path) -> None:
     for existing_parent in _existing_parents(root, parent):
         if existing_parent.is_symlink():
             raise ValueError("parent path is unsafe")
         if existing_parent.exists() and not existing_parent.is_dir():
             raise ValueError("parent path is unsafe")
-    parent.mkdir(parents=True, exist_ok=True)
 
 
 def _existing_parents(root: Path, parent: Path) -> tuple[Path, ...]:
@@ -182,6 +190,18 @@ def _verify_part_file(path: Path, item: DownloadPlanItem) -> None:
         raise ValueError("downloaded file size mismatch")
     if item.expected_sha256 is not None and sha256_file(path) != item.expected_sha256:
         raise ValueError("downloaded file hash mismatch")
+
+
+def _create_part_file(path: Path) -> BinaryIO:
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    fd = os.open(path, flags, 0o600)
+    try:
+        return os.fdopen(fd, "wb")
+    except Exception:
+        os.close(fd)
+        raise
 
 
 def _reject_symlink(path: Path, message: str) -> None:
