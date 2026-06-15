@@ -7,6 +7,12 @@ def test_package_imports() -> None:
     assert chakra_vault.__name__ == "chakra_vault"
 
 
+def test_cli_module_imports() -> None:
+    import chakra_vault.cli
+
+    assert chakra_vault.cli.__name__ == "chakra_vault.cli"
+
+
 def test_download_modules_import() -> None:
     import chakra_vault.downloads.service
     import chakra_vault.downloads.throttle

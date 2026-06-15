@@ -22,6 +22,9 @@ dependencies = [
   "huggingface-hub>=0.24",
 ]
 
+[project.scripts]
+chakra-vault = "chakra_vault.cli:main"
+
 [project.optional-dependencies]
 dev = [
   "pytest>=8.2",
