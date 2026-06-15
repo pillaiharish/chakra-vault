@@ -52,8 +52,8 @@ def download_huggingface_model(
         expected_files = client.list_model_files(repo_id, revision=revision)
     except ValueError:
         raise
-    except Exception as error:
-        raise ModelDownloadWorkflowError("failed to fetch model metadata") from error
+    except Exception:
+        raise ModelDownloadWorkflowError("failed to fetch model metadata") from None
 
     plan = build_download_plan(root, expected_files)
     execution = execute_download_plan(root, plan, source)
@@ -75,5 +75,5 @@ def _build_download_source(
 ) -> DownloadSource:
     try:
         return HuggingFaceDownloadSource(repo_id, revision=revision, token=token)
-    except Exception as error:
-        raise ModelDownloadWorkflowError("failed to create download source") from error
+    except Exception:
+        raise ModelDownloadWorkflowError("failed to create download source") from None

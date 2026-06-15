@@ -214,6 +214,32 @@ def test_token_like_metadata_error_is_wrapped_without_leak(tmp_path: Path) -> No
     assert "token-secret" not in message
     assert "https://huggingface.co" not in message
     assert str(tmp_path) not in message
+    assert error.value.__cause__ is None
+
+
+def test_source_construction_error_is_wrapped_without_cause_or_leak(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    def fail_source(repo_id: str, *, revision: str | None = None, token=None):
+        raise RuntimeError(f"token-secret at https://huggingface.co from {tmp_path}")
+
+    monkeypatch.setattr(workflow, "HuggingFaceDownloadSource", fail_source)
+
+    with pytest.raises(ModelDownloadWorkflowError) as error:
+        download_huggingface_model(
+            "org/model",
+            tmp_path,
+            token="token-secret",
+            metadata_client=FakeMetadataClient(()),
+        )
+
+    message = str(error.value)
+    assert message == "failed to create download source"
+    assert "token-secret" not in message
+    assert "https://huggingface.co" not in message
+    assert str(tmp_path) not in message
+    assert error.value.__cause__ is None
 
 
 def test_unsafe_metadata_path_is_rejected_by_lower_layer(tmp_path: Path) -> None:
