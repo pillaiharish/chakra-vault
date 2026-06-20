@@ -62,6 +62,15 @@ See [CLI documentation](docs/cli.md) for arguments, summary fields, exit codes,
 and privacy behavior. See [download workflow documentation](docs/download-workflow.md)
 for the component boundaries behind the command.
 
+## Documentation
+
+- [Install](docs/install.md)
+- [CLI](docs/cli.md)
+- [Download workflow](docs/download-workflow.md)
+- [Roadmap](docs/roadmap.md)
+- [Release checklist](docs/release-checklist.md)
+- [Changelog](CHANGELOG.md)
+
 ## Safety Rules
 
 - No Hugging Face upload, push, publish, create-repo, or remote-delete flows.
