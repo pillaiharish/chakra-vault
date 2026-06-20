@@ -25,6 +25,7 @@ git status --short
   staged.
 - Verify no Hugging Face upload, push, publish, create-repo, or delete flows are
   present.
+- Verify CLI help smoke tests cover root, model, and model download commands.
 - Verify GitHub Actions passes on Python 3.11 and 3.12.
 
 ## Tag
