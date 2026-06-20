@@ -59,6 +59,27 @@ def test_cli_help_exits_successfully(capsys: pytest.CaptureFixture[str]) -> None
     assert "model" in captured.out
 
 
+def test_cli_no_args_prints_root_help_without_error(capsys: pytest.CaptureFixture[str]) -> None:
+    exit_code = cli.main([])
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "chakra-vault" in captured.out
+    assert "model" in captured.out
+    assert captured.err == ""
+
+
+def test_model_no_args_prints_model_help_without_error(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    exit_code = cli.main(["model"])
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "download" in captured.out
+    assert captured.err == ""
+
+
 def test_missing_required_args_exit_nonzero(capsys: pytest.CaptureFixture[str]) -> None:
     exit_code = cli.main(["model", "download", "--repo-id", "org/model"])
 
