@@ -37,6 +37,15 @@ promote `.part` files.
 - `--revision`: optional model revision, branch, tag, or commit.
 - `--dry-run`: plan only; perform no downloads or writes.
 
+## Help Behavior
+
+These commands print help to stdout and exit successfully:
+
+```bash
+chakra-vault
+chakra-vault model
+```
+
 ## Summary Fields
 
 The command prints a compact summary:

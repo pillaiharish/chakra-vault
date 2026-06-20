@@ -17,8 +17,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     """Run the Chakra Vault command-line interface."""
 
     parser = _build_parser()
+    args_list = list(argv) if argv is not None else sys.argv[1:]
+    if not args_list:
+        parser.print_help(sys.stdout)
+        return 0
+    if args_list == ["model"]:
+        _build_model_parser().print_help(sys.stdout)
+        return 0
+
     try:
-        args = parser.parse_args(argv)
+        args = parser.parse_args(args_list)
     except SystemExit as error:
         return _exit_code(error)
 
@@ -33,7 +41,13 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="chakra-vault")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    model_parser = subparsers.add_parser("model")
+    model_parser = _build_model_parser()
+    subparsers.add_parser("model", parents=[model_parser], add_help=False)
+    return parser
+
+
+def _build_model_parser() -> argparse.ArgumentParser:
+    model_parser = argparse.ArgumentParser(prog="chakra-vault model")
     model_subparsers = model_parser.add_subparsers(dest="model_command", required=True)
 
     download_parser = model_subparsers.add_parser("download")
@@ -41,7 +55,7 @@ def _build_parser() -> argparse.ArgumentParser:
     download_parser.add_argument("--target-dir", required=True)
     download_parser.add_argument("--revision")
     download_parser.add_argument("--dry-run", action="store_true")
-    return parser
+    return model_parser
 
 
 def _run_model_download(args: argparse.Namespace) -> int:
